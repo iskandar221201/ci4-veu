@@ -4,7 +4,7 @@
 ![Shield](https://img.shields.io/badge/Shield-Auth-22c55e?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)
 ![Status](https://img.shields.io/badge/status-stable-brightgreen?style=flat-square)
-![Version](https://img.shields.io/badge/version-4.0.0-blue?style=flat-square)
+![Version](https://img.shields.io/badge/version-1.0.0-blue?style=flat-square)
 
 A Production-grade CI4 starter kit — full-stack monolith or pure REST API backend. Pairs with any frontend framework. Shield auth · Service layer · Audit trail · SSO · PDF export · Resumable uploads · WebSocket. Clone, extend, ship in a day
 
@@ -27,7 +27,6 @@ A Production-grade CI4 starter kit — full-stack monolith or pure REST API back
 - [SSO Layer](#sso-layer)
 - [PDF Export](#pdf-export)
 - [TUS Chunked Upload](#tus-chunked-upload)
-- [Compatibility Matrix](#compatibility-matrix)
 - [How to Add a New Resource](#how-to-add-a-new-resource)
 - [Server Requirements](#server-requirements)
 
@@ -56,26 +55,43 @@ cd my-project
 # 2. Copy environment template and fill in DB credentials
 cp .env.example .env
 
-# 3. Install dependencies
+# 3. Install PHP dependencies
 composer install
 
-# 4. Run all migrations (CI4 + Shield tables)
+# 4. Install frontend dependencies and build the Vue SPA
+cd frontend && npm install && npm run build && cd ..
+
+# 5. Run all migrations (CI4 + Shield tables)
 php spark migrate --all
 
-# 5. Seed the admin user
+# 6. Seed the admin user
 php spark db:seed AdminSeeder
 
-# 6. Start the development server
+# 7. Start the development server
 php spark serve
 
-# 7. Open the web UI
+# 8. Open the web UI
 open http://localhost:8080/login
 # Email: admin@example.com  |  Password: password123
 
-# 8. Verify the API
+# 9. Verify the API
 curl http://localhost:8080/api/ping
 # Expected: {"status":true,"code":200,"message":"pong","data":null}
 ```
+
+### Frontend dev workflow
+
+For hot-reload while working on the Vue SPA, run two terminals:
+
+```bash
+# Terminal 1 — API + SPA server (port 8080)
+php spark serve
+
+# Terminal 2 — Vite dev server (port 5173, proxies /api to :8080)
+cd frontend && npm run dev
+```
+
+Then open `http://localhost:5173`. The Vite dev server proxies `/api/*` to `http://localhost:8080` automatically.
 
 ---
 
@@ -89,13 +105,13 @@ Request → Filter Stack → Controller → Service → Model → Database
 
 | Layer | Responsibility |
 |---|---|
-| **Web Controller** | Serves HTML views. No business logic — just passes data to views. |
+| **Vue SPA** | Client-rendered UI (Vite + Vue Router + Pinia). Calls the API — no business logic. |
 | **API Controller** | Receives JSON requests, delegates to Service, returns JSON response. Never accesses a Model directly. |
 | **Service** | Holds business logic, validates input, orchestrates Model calls. |
 | **Transformer** | Shapes and sanitizes response payloads before they reach the API response layer. |
 | **Model** | App models extend `BaseModel` (soft delete, search/dateRange scopes). Shield-based models extend `ShieldUserModel` directly. |
 
-### Optional Layers (v2.0+)
+### Optional Layers
 
 | Layer | Files | Notes |
 |---|---|---|
@@ -116,7 +132,7 @@ protected function afterDelete(int|string $id, array $oldData): void
 
 Hook failures are non-blocking — they log to `log_message()` and never break the main operation.
 
-> Note: `BaseService::update()` now returns the updated entity instead of `true`. Controllers receive the fresh record directly without a second database query.
+> Note: `BaseService::update()` returns the updated entity instead of `true`. Controllers receive the fresh record directly without a second database query.
 
 ---
 
@@ -128,20 +144,19 @@ app/
 │       ├── AppConstants.php      # HTTP status codes, pagination caps, and app-wide constants
 │   ├── Filters.php           # Filter aliases and route bindings
 │   ├── Routes.php            # Route definitions (web + API)
-│   ├── SSOConfig.php         # SSO toggle + RSA key config (v2.0)
-│   ├── TusConfig.php         # TUS upload dir, max size, expiry (v3.0)
-│   └── WsConfig.php          # WebSocket host, port, enabled, secret (v4.0)
+│   ├── SSOConfig.php         # SSO toggle + RSA key config
+│   ├── TusConfig.php         # TUS upload dir, max size, expiry
+│   └── WsConfig.php          # WebSocket host, port, enabled, secret
 ├── Controllers/
 │   ├── BaseController.php    # Base for all controllers (traits wired here)
 │   ├── Api/
 │   │   ├── BaseApiController.php   # Forces JSON response, populates $apiUser
 │   │   ├── AuthController.php      # Token-based login endpoint
 │   │   ├── PingController.php      # Health check endpoints
-│   │   ├── TusController.php       # TUS protocol handler (v3.0)
+│   │   ├── TusController.php       # TUS protocol handler
 │   │   └── UserController.php      # Full CRUD reference implementation
-│   └── Web/
-│       ├── DashboardController.php # Serves dashboard view
-│       └── UserWebController.php   # Serves user management views
+│   ├── SpaController.php       # Serves the Vue SPA (frontend/dist/index.html)
+│   └── Home.php               # Legacy welcome (orphan, unused)
 ├── Exceptions/
 │   ├── ServiceException.php        # General service-layer exception
 │   └── ValidationException.php     # Wraps validation errors (422)
@@ -150,23 +165,23 @@ app/
 │   ├── AuthFilter.php        # Session auth guard for web routes
 │   ├── CorsFilter.php        # CORS headers + OPTIONS preflight
 │   ├── JsonBodyFilter.php    # Rejects non-JSON bodies on POST/PUT/PATCH
-│   └── SSOFilter.php         # JWT Bearer token verification for SSO (v2.0)
+│   └── SSOFilter.php         # JWT Bearer token verification for SSO
 ├── Helpers/
 │   └── response_helper.php   # api_success() / api_error() for filter context
 ├── Commands/
-│   ├── TusCleanupCommand.php  # php spark tus:cleanup — removes expired TUS uploads (v3.0)
-│   └── WsServeCommand.php     # php spark ws:serve — starts Ratchet WebSocket server (v4.0)
+│   ├── TusCleanupCommand.php  # php spark tus:cleanup — removes expired TUS uploads
+│   └── WsServeCommand.php     # php spark ws:serve — starts Ratchet WebSocket server
 ├── Contracts/
 │   └── StorageDriverInterface.php  # Abstraction for pluggable storage backends
 ├── Libraries/
 │   ├── AppLogger.php              # Static facade for structured JSON logging
-│   ├── BasePdfExporter.php        # Abstract base for PDF export via mPDF (v2.0)
+│   ├── BasePdfExporter.php        # Abstract base for PDF export via mPDF
 │   ├── FileUploader.php           # Standardized upload handler for module files
-│   ├── JWTService.php             # JWT RS256 sign and verify (v2.0)
-│   ├── TusUploader.php            # TUS protocol server wrapper + cleanup (v3.0)
+│   ├── JWTService.php             # JWT RS256 sign and verify
+│   ├── TusUploader.php            # TUS protocol server wrapper + cleanup
 │   ├── VoidExceptionHandler.php   # Prevents double-response on API error routes
-│   ├── WsPublisher.php            # HTTP publisher from CI4 to Ratchet server (v4.0)
-│   ├── WsServer.php               # Ratchet WebSocket server wrapper (v4.0)
+│   ├── WsPublisher.php            # HTTP publisher from CI4 to Ratchet server
+│   ├── WsServer.php               # Ratchet WebSocket server wrapper
 │   └── Storage/
 │       ├── LocalDriver.php   # Default local filesystem storage driver
 │       └── S3Driver.php      # Optional S3-compatible storage driver
@@ -186,44 +201,31 @@ app/
 ├── Validation/
 │   └── BaseValidator.php     # Thin wrapper around CI4 Validation service
 └── Views/
-    ├── _layouts/
-    │   ├── auth.php          # Minimal layout for login page
-    │   └── main.php          # App shell layout (sidebar + navbar)
-    ├── _partials/
-    │   ├── navbar.php        # Top bar — reads username from localStorage
-    │   ├── sidebar.php       # Side nav — app name from APP_NAME env
-    │   ├── page_header.php   # Page title + breadcrumb + optional action button
-    │   ├── datatable.php     # Reusable table with pagination
-    │   ├── search_bar.php    # Debounced search input
-    │   ├── form.php          # Generic form wrapper (Alpine formHandler)
-    │   ├── confirm_dialog.php# Confirmation modal for destructive actions
-    │   ├── error_toast.php   # Global toast notification
-    │   ├── empty_state.php   # Empty data illustration
-    │   ├── detail_card.php   # Label-value detail card
-    │   ├── badge.php         # Status badge
-    │   ├── loading_overlay.php # Full-page loading overlay
-    │   └── flash.php         # Server-side flash messages
-    ├── auth/
-    │   └── login.php         # Login page
-    ├── dashboard/
-    │   └── index.php         # Dashboard home
-    ├── users/
-    │   ├── index.php         # User list with search + pagination
-    │   ├── create.php        # Create user form (username, email, password)
-    │   └── detail.php        # User detail + inline edit + delete
-    └── exports/              # PDF export templates — plain HTML, no layout (v2.0)
+    ├── errors/               # CI4 native error pages (fatal fallback)
+    └── exports/              # PDF export templates — plain HTML, no layout
 ```
 
 ```
-public/assets/js/
-├── auth.js        # Token + username storage (localStorage), auth guard
-├── api.js         # Fetch wrapper — attaches Bearer token, unwraps envelope
-├── error.js       # Global errorHandler toast driver
-├── components.js  # Alpine component definitions (dataTable, formHandler, etc.)
-└── tus-client.js  # Optional TUS chunked upload helper (require per-view, v3.0)
+frontend/                     # Vue 3 SPA (Vite + Vue Router + Pinia + Tailwind)
+├── src/
+│   ├── main.js               # App bootstrap — fetchMe() before mount, error hooks
+│   ├── App.vue               # Layout switcher (default/auth/blank) + global toast
+│   ├── router/index.js       # Routes + auth guard (lazy-loaded views)
+│   ├── services/api.js       # Axios instance — withCredentials, envelope unwrap
+│   ├── stores/
+│   │   ├── auth.js           # Pinia auth store (cookie-based, no localStorage)
+│   │   └── toast.js          # Pinia global toast
+│   ├── composables/          # useDataTable, useForm, useConfirmDialog, useTusUpload, …
+│   ├── components/
+│   │   ├── layout/           # AppShell, AuthLayout, Sidebar, Navbar
+│   │   └── ui/               # PageHeader, DataTable, Badge, Datepicker, …
+│   └── views/                # Welcome, Login, Dashboard, Showcase, users/*
+├── vite.config.js            # base /dist/, outDir ../public/dist, @/ alias
+├── tailwind.config.js        # content glob + flowbite plugin
+└── package.json              # npm deps + dev/build/lint/test/analyze scripts
 ```
 
-> Files marked `(v2.0)` or `(v3.0)` are additive. Projects using earlier versions are unaffected.
+> The Vue SPA builds to `public/dist/` and is served by `SpaController` via a catch-all route.
 
 ---
 
@@ -289,7 +291,10 @@ Filter registration: `app/Config/Filters.php`
 
 ## Authentication Flow
 
-This kit uses **token-based authentication** for all API calls. The web UI stores the token in `localStorage` and attaches it as a `Bearer` header on every request via `api.js`.
+This kit uses **hybrid token authentication**:
+
+- **Vue SPA** — the server sets an **httpOnly cookie** (`ck_token`) on login. The cookie is `HttpOnly`, `SameSite=Lax`, `Path=/`, and `Secure` (auto-detected when HTTPS). JavaScript cannot read it (XSS-proof) and it auto-attaches to every same-origin request via `withCredentials: true`.
+- **API clients** — the raw token is still returned in the login response body, so programmatic clients keep using `Authorization: Bearer <token>` (backward-compatible). `ApiKeyFilter` checks the Bearer header first, then falls back to the cookie.
 
 ### Login
 
@@ -300,7 +305,8 @@ Content-Type: application/json
 { "email": "admin@example.com", "password": "password123" }
 ```
 
-Response:
+Response (cookie `ck_token` also set via `Set-Cookie`):
+
 ```json
 {
   "status": true,
@@ -308,99 +314,89 @@ Response:
   "message": "Login berhasil",
   "data": {
     "token": "<shield-access-token>",
+    "id": 1,
     "email": "admin@example.com",
     "username": "admin"
   }
 }
 ```
 
-The `AuthController` validates credentials directly via Shield's user provider and `service('passwords')->verify()` — **without touching the PHP session at all**. This avoids Shield's session-state conflict error (`The user has User Info in Session`) when hitting the login endpoint multiple times or from stateless API clients.
+The `AuthController` validates credentials directly via Shield's user provider and `service('passwords')->verify()` — **without touching the PHP session at all**. On success it issues a Shield access token and sets the httpOnly cookie. The Vue SPA stores only the `user` object (`{ id, username, email }`) in Pinia — never the token.
 
-Credential validation flow:
-1. `findByCredentials(['email' => ...])` — fetch user + populate `password_hash` from `auth_identities`
-2. `service('passwords')->verify(...)` — bcrypt comparison, no session side-effect
-3. `user->active` check — reject inactive accounts with `403`
-4. `generateAccessToken('api-login')` — issue Shield access token
-   - Previous tokens from other devices are **not revoked** — users stay logged in across devices
+### Auth bootstrap
 
-After login, `auth.js` stores the token and username in `localStorage`:
+On app boot, `main.js` calls `GET /api/auth/me` (cookie auto-attaches) before mounting. If the cookie is valid, the response is `{ id, username, email }` and the user is restored; if not, the router guard redirects to `/login`.
 
-```js
-auth.setToken(data.token)
-auth.setUsername(data.username || data.email)
+### `GET /api/auth/me`
+
+Returns the authenticated user (protected by `apiKeyFilter`):
+
+```json
+{ "status": true, "data": { "id": 1, "username": "admin", "email": "admin@example.com" } }
 ```
-
-### Auth Guard (client-side)
-
-`auth.js` runs `checkAuthRoute()` automatically on every page load:
-
-- If authenticated → blocks access back to `/login`
-- If not authenticated → redirects to `/login` from any protected path
 
 ### Logout
 
-```js
-auth.logout() // clears localStorage and redirects to /login
+```
+POST /api/auth/logout
 ```
 
-### `api.js` behavior
+Revokes the Shield access token (server-side) and expires the `ck_token` cookie. The Vue SPA then clears its local `user` state and redirects to `/login`.
+
+### `api.js` behavior (axios interceptor)
 
 | HTTP Status | Behavior |
 |---|---|
-| `401` on non-login routes | `auth.logout()` — clear token and redirect |
+| `401` on non-login routes | Set `user = null`; redirect to `/login` (skipped during bootstrap — router guard handles it) |
 | `401` on `/api/auth/login` | Throw `{ message }` — display error in form |
 | `422` | Throw `{ errors }` — mapped per-field in form |
-| Other non-OK | `errorHandler.catch()` — show toast |
+| Other non-OK | Toast via toast store |
+
+> **CORS note:** cookie auth cannot use `CORS_ALLOWED_ORIGINS=*`. Browsers reject credentialed requests with a wildcard origin. Set a comma-separated list of specific origins (e.g. `CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:8080`). In dev, the Vite proxy makes API requests same-origin, so this is only relevant for cross-origin deployments.
 
 ---
 
 ## Web UI Layer
 
-The web UI is a server-rendered PHP shell with Alpine.js components calling the API. It is **stateless on the server** — all auth state lives in `localStorage`.
+The web UI is a **Vue 3 SPA** built with Vite, Vue Router, Pinia, and Tailwind (installed via npm). It is **stateless on the server** — all auth state lives in an httpOnly cookie plus a Pinia `user` object.
 
-### Routes
+The SPA builds to `public/dist/` and is served by `SpaController` through a catch-all route. Vue Router resolves the actual view client-side.
 
-| Method | Path | Controller | Description |
-|---|---|---|---|
-| GET | `/login` | `Web\UserWebController::loginPage` | Login page |
-| GET | `/dashboard` | `Web\DashboardController::index` | Dashboard |
-| GET | `/users` | `Web\UserWebController::index` | User list |
-| GET | `/users/create` | `Web\UserWebController::create` | Create user form |
-| GET | `/users/:id` | `Web\UserWebController::detail` | User detail + edit |
+### Routes (Vue Router)
+
+| Path | View | Description |
+|---|---|---|
+| `/` | `WelcomeView` | Public landing page |
+| `/login` | `LoginView` | Login form |
+| `/dashboard` | `DashboardView` | Dashboard |
+| `/users` | `UserListView` | User list (search + pagination) |
+| `/users/create` | `UserCreateView` | Create user form |
+| `/users/:id` | `UserDetailView` | User detail + inline edit + delete |
+| `/showcase` | `ShowcaseView` | Component gallery |
+| `*` | `NotFoundView` | 404 catch-all |
 
 ### App Name
 
-The app name displayed in the sidebar and login page is read from `.env`:
+The app name is read from the Vite env var `VITE_APP_NAME` (`frontend/.env`):
 
 ```
-APP_NAME="My App"
+VITE_APP_NAME="My App"
 ```
-
-Rendered via `env('APP_NAME', 'CI4 Kit')` — no hardcoding in views.
 
 ### Username Display
 
-The logged-in user's name in the navbar is read from `localStorage` via Alpine:
+The logged-in user's name is read from the Pinia auth store (`useAuthStore().username`), which is populated from `/api/auth/me` at boot — no localStorage.
 
-```html
-<span x-data="{ displayName: auth.getUsername() }" x-text="displayName"></span>
+### Frontend commands
+
+```bash
+cd frontend
+npm run dev       # Vite dev server (hot reload)
+npm run build     # production build → ../public/dist
+npm run lint      # ESLint (flat config + eslint-plugin-vue)
+npm run test      # Vitest unit tests
+npm run analyze   # bundle visualizer → stats.html
 ```
-
-`auth.setUsername()` is called at login with `data.username || data.email` from the API response.
-
-### JS Load Order
-
-Scripts must be loaded in this order so Alpine can reference `auth`, `api`, and `errorHandler` on init:
-
-```html
-<script src="/assets/js/auth.js"></script>
-<script src="/assets/js/error.js"></script>
-<script src="/assets/js/api.js"></script>
-<script src="/assets/js/components.js"></script>
-<script defer src="alpinejs CDN"></script>
-```
-
-Alpine uses `defer` so it initializes after the CI4 Kit globals are defined.
 
 ### User Management
 
@@ -433,7 +429,7 @@ All views follow a consistent clean white style — no blue/purple accents. The 
 | Toast (info) | `bg-gray-800` — dark neutral |
 | Active nav item | `bg-gray-900 text-white` — same as primary button |
 
-The app name in the sidebar and login page title is always read from `env('APP_NAME')` — never hardcoded in views.
+The app name in the sidebar and login page title is read from `VITE_APP_NAME` (`frontend/.env`) — never hardcoded in views.
 
 ---
 
@@ -527,7 +523,7 @@ composer require ankitpokhrel/tus-php
 | `app/Libraries/TusUploader.php` | Implements `StorageDriverInterface`, wraps tus-php server |
 | `app/Controllers/Api/TusController.php` | TUS protocol handler at `/api/upload/tus` |
 | `app/Commands/TusCleanupCommand.php` | `php spark tus:cleanup` — remove expired incomplete uploads |
-| `public/assets/js/tus-client.js` | Optional Alpine-compatible JS client |
+| `frontend/src/composables/useTusUpload.js` | Optional Vue composable for TUS uploads (uses `tus-js-client` npm) |
 
 **TUS Endpoints:**
 
@@ -553,24 +549,27 @@ TUS_EXPIRY_HOURS=24
 php spark tus:cleanup
 ```
 
-**JS client usage in a view:**
+**Client usage (Vue composable):**
 
-```php
-<script src="https://cdn.jsdelivr.net/npm/tus-js-client@latest/dist/tus.min.js"></script>
-<script src="<?= base_url('assets/js/tus-client.js') ?>"></script>
+The `useTusUpload` composable (`frontend/src/composables/useTusUpload.js`) wraps `tus-js-client`:
 
-<div x-data="tusUploader({ endpoint: '/api/upload/tus', onSuccess: (url) => console.log(url) })">
-  <input type="file" @change="start($event.target.files[0])">
-  <template x-if="isUploading">
-    <progress :value="progress" max="100"></progress>
-  </template>
-  <template x-if="isComplete">
-    <a :href="result" x-text="result"></a>
-  </template>
-</div>
+```vue
+<script setup>
+import { useTusUpload } from '@/composables/useTusUpload'
+
+const { progress, isUploading, isComplete, result, start } = useTusUpload({
+  endpoint: '/api/upload/tus',
+})
+</script>
+
+<template>
+  <input type="file" @change="start($event.target.files[0])" />
+  <progress v-if="isUploading" :value="progress" max="100"></progress>
+  <a v-if="isComplete" :href="result">{{ result }}</a>
+</template>
 ```
 
-All TUS endpoints are behind `apiKeyFilter` (Bearer token auth). The JS client reads the token from `auth.js` automatically.
+All TUS endpoints are behind `apiKeyFilter` (cookie or Bearer token auth).
 
 ---
 
@@ -723,7 +722,7 @@ $ssoUser = $this->request->ssoUser; // ['sub' => '1', 'email' => '...', 'iat' =>
 composer require firebase/php-jwt:^7.0
 ```
 
-> `firebase/php-jwt` is already in `require` since v2.0. No extra install needed if you cloned this kit.
+> `firebase/php-jwt` is already in `require`. No extra install needed.
 
 ### Notes
 
@@ -781,7 +780,7 @@ public function exportPdf(): ResponseInterface
 
 ---
 
-## WebSocket Server (v4.0)
+## WebSocket Server
 
 The kit includes an optional real-time event layer powered by [Ratchet](http://socketo.me/). CI4 publishes events to a separate Ratchet process via internal HTTP; the Ratchet server broadcasts them to connected WebSocket clients. It is **disabled by default** — set `WS_ENABLED=true` to activate.
 
@@ -909,46 +908,6 @@ ws.send(JSON.stringify({ type: 'subscribe', channel: 'model:order' }));
 
 ---
 
-## Compatibility Matrix
-
-v4.0 is a **strict superset** of v3.x. No database migrations required to upgrade.
-
-| Feature | v1.x | v2.0 | v3.0 | v4.0 |
-|---|---|---|---|---|
-| BE Layer (API, Service, Model) | ✅ | ✅ | ✅ | ✅ |
-| Shield Auth (token-based) | ✅ | ✅ | ✅ | ✅ |
-| Audit Trail | ✅ | ✅ | ✅ | ✅ |
-| File Upload + Storage Drivers | ✅ | ✅ | ✅ | ✅ |
-| Structured JSON Logging | ✅ | ✅ | ✅ | ✅ |
-| Transformers | ✅ | ✅ | ✅ | ✅ |
-| SSO Layer (JWT RS256) | ❌ | ✅ optional | ✅ optional | ✅ optional |
-| PDF Export (mPDF) | ❌ | ✅ optional | ✅ optional | ✅ optional |
-| **TUS Chunked Upload** | ❌ | ❌ | ✅ optional | ✅ optional |
-| **WebSocket Server (Ratchet)** | ❌ | ❌ | ❌ | ✅ optional |
-| **Web UI Layer** | ❌ | ❌ | ✅ | ✅ |
-| **Token-based login (no session)** | ❌ | ❌ | ✅ | ✅ |
-| **APP_NAME env binding** | ❌ | ❌ | ✅ | ✅ |
-| **Admin user creation with password** | ❌ | ❌ | ✅ | ✅ |
-
-### Upgrading from v2.x
-
-Copy these files into your existing v2.x project:
-
-| File | Purpose |
-|---|---|
-| `app/Controllers/Api/AuthController.php` | Token login — no session conflict |
-| `app/Controllers/Web/` | Web controllers for views |
-| `app/Views/` | Full views layer (layouts, partials, pages) |
-| `public/assets/js/` | `auth.js`, `api.js`, `error.js`, `components.js` |
-| `app/Config/Routes.php` | Updated routes (web + API) |
-
-Add to `.env`:
-```
-APP_NAME="My App"
-```
-
----
-
 ## How to Add a New Resource
 
 Example: adding a `Post` resource.
@@ -993,28 +952,23 @@ class PostController extends BaseApiController
 }
 ```
 
-**5. Create the Web Controller** — `app/Controllers/Web/PostWebController.php`
+**5. Create the Vue view** — `frontend/src/views/posts/PostListView.vue`
 
-```php
-class PostWebController extends BaseController
+The SPA uses `frontend/src/composables/useDataTable()` + `DataTable`/`PageHeader` components to render the list. Add a route in `frontend/src/router/index.js`:
+
+```js
 {
-    public function index()   { return view('posts/index'); }
-    public function create()  { return view('posts/create'); }
-    public function detail($id) { return view('posts/detail', ['id' => $id]); }
-}
+  path: '/posts',
+  name: 'posts',
+  component: () => import('@/views/posts/PostListView.vue'),
+  meta: { title: 'Posts', layout: 'default' },
+},
 ```
 
-**6. Register routes** in `app/Config/Routes.php`
+**6. Register API routes** in `app/Config/Routes.php`
 
 ```php
-// Web routes
-$routes->group('', static function ($routes) {
-    $routes->get('posts',           'Web\PostWebController::index');
-    $routes->get('posts/create',    'Web\PostWebController::create');
-    $routes->get('posts/(:num)',    'Web\PostWebController::detail/$1');
-});
-
-// API routes
+// API routes (web routes are handled by the Vue SPA catch-all)
 $routes->group('api', ['filter' => 'apiKeyFilter'], static function ($routes) {
     $routes->get('posts',           'Api\PostController::index');
     $routes->post('posts',          'Api\PostController::create');

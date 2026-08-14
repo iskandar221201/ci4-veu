@@ -5,27 +5,6 @@ use CodeIgniter\Router\RouteCollection;
 /** @var RouteCollection $routes */
 
 // =========================================================
-// Public Routes
-// =========================================================
-$routes->get('/', 'Home::index');
-
-// =========================================================
-// Web Routes (CI4 Kit v3.0)
-// =========================================================
-$routes->group('', static function ($routes) {
-    $routes->get('login',           'Web\UserWebController::loginPage');
-    $routes->get('users',           'Web\UserWebController::index');
-    $routes->get('users/create',    'Web\UserWebController::create');
-    $routes->get('users/(:num)',    'Web\UserWebController::detail/$1');
-});
-
-// ⚠️  PLACEHOLDER — AuthController does not exist in this kit yet.
-//     This route will throw PageNotFoundException if hit in production.
-//     Remove this line or create app/Controllers/AuthController.php before deploying.
-//     See Shield documentation for login implementation: https://shield.codeigniter.com
-$routes->post('login', 'AuthController::login');
-
-// =========================================================
 // API Routes — Public (no auth required)
 // =========================================================
 $routes->group('api', static function ($routes) {
@@ -33,11 +12,14 @@ $routes->group('api', static function ($routes) {
     $routes->post('auth/login', 'Api\AuthController::login');
 });
 
-
 // =========================================================
 // API Routes — Protected (apiKeyFilter)
 // =========================================================
 $routes->group('api', ['filter' => 'apiKeyFilter'], static function (RouteCollection $routes): void {
+    // Auth (cookie mode)
+    $routes->post('auth/logout', 'Api\AuthController::logout');
+    $routes->get('auth/me', 'Api\AuthController::me');
+
     // Health check (authenticated)
     $routes->get('protected', 'Api\PingController::check');
 
@@ -53,14 +35,16 @@ $routes->group('api', ['filter' => 'apiKeyFilter'], static function (RouteCollec
     $routes->match(['options', 'post', 'patch', 'head', 'delete'], 'upload/tus/(:any)', 'Api\TusController::handle/$1');
 });
 
-$routes->group('', static function ($routes) {
-    // ⚠️ Auth checking for web routes should be handled by auth.js checking localStorage on frontend,
-    // or by custom web auth filter if using session auth. Since CI4 Kit v3 uses token auth,
-    // the views layer is public and auth redirect is handled by JS.
-    $routes->get('dashboard', 'Web\DashboardController::index');
-    $routes->get('showcase', 'Web\ShowcaseController::index');
-});
+// =========================================================
+// Shield routes — exclude session-based auth routes so they
+// don't shadow the Vue SPA catch-all below. The SPA handles
+// auth client-side via the token API (/api/auth/*).
+// =========================================================
+service('auth')->routes($routes, ['except' => ['register', 'login', 'magic-link', 'logout', 'auth-actions']]);
 
-
-// Shield auth routes (login, register, magic-link, etc.)
-service('auth')->routes($routes);
+// =========================================================
+// SPA catch-all — MUST be the last route.
+// Serves the Vue SPA (frontend/dist/index.html) for every
+// non-API GET request. Vue Router resolves the actual view.
+// =========================================================
+$routes->get('(.*)', 'SpaController::index');

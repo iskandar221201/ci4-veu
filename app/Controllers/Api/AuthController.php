@@ -62,10 +62,57 @@ class AuthController extends BaseApiController
         // Fallback: Generate Shield Access Token
         $token = $user->generateAccessToken('api-login');
 
+        // Set httpOnly cookie for the Vue SPA (same-origin). The raw token is
+        // also returned in the body for backward-compat with programmatic API
+        // clients (Bearer header mode). SSO branch above does NOT set a cookie.
+        setAuthCookie($this->response, $token->raw_token);
+
         return $this->success([
             'token'    => $token->raw_token,
+            'id'       => $user->id,
             'email'    => $user->email,
             'username' => $user->username,
         ], 'Login berhasil');
+    }
+
+    public function logout(): ResponseInterface
+    {
+        $user = $this->apiUser;
+
+        if ($user !== null) {
+            // Prefer the cookie token; fall back to the Bearer header.
+            $tokenString = service('request')->getCookie(env('AUTH_COOKIE_NAME', 'ck_token'));
+            if (empty($tokenString)) {
+                $header = service('request')->getHeaderLine('Authorization');
+                if (str_starts_with($header, 'Bearer ')) {
+                    $tokenString = substr($header, 7);
+                }
+            }
+
+            if (! empty($tokenString)) {
+                $user->revokeAccessToken($tokenString);
+            }
+
+            $this->logInfo('auth.logout', ['user_id' => $user->id]);
+        }
+
+        clearAuthCookie($this->response);
+
+        return $this->success(null, 'Logout berhasil');
+    }
+
+    public function me(): ResponseInterface
+    {
+        $user = $this->apiUser;
+
+        if ($user === null) {
+            return $this->error('Unauthorized', 401);
+        }
+
+        return $this->success([
+            'id'       => $user->id,
+            'username' => $user->username,
+            'email'    => $user->email,
+        ], 'OK');
     }
 }

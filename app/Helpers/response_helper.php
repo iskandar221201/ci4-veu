@@ -1,5 +1,45 @@
 <?php
 
+use CodeIgniter\HTTP\ResponseInterface;
+
+if (! function_exists('setAuthCookie')) {
+    /**
+     * Set the httpOnly auth cookie carrying the raw Shield access token.
+     *
+     * Secure attribute is auto-detected when AUTH_COOKIE_SECURE_AUTO=true
+     * (reads $request->isSecure(), which honors X-Forwarded-Proto via proxyIPs).
+     */
+    function setAuthCookie(ResponseInterface $response, string $rawToken): void
+    {
+        $name       = env('AUTH_COOKIE_NAME', 'ck_token');
+        $sameSite   = env('AUTH_COOKIE_SAMESITE', 'Lax');
+        $secureAuto = env('AUTH_COOKIE_SECURE_AUTO', 'true') === 'true';
+        $isSecure   = $secureAuto && service('request')->isSecure();
+
+        $response->setCookie(
+            $name,
+            $rawToken,
+            (int) env('AUTH_COOKIE_TTL', YEAR), // expire (seconds from now)
+            '',
+            '/',
+            '',
+            $isSecure,
+            true,
+            $sameSite,
+        );
+    }
+}
+
+if (! function_exists('clearAuthCookie')) {
+    /**
+     * Expire the httpOnly auth cookie (used on logout).
+     */
+    function clearAuthCookie(ResponseInterface $response): void
+    {
+        $response->deleteCookie(env('AUTH_COOKIE_NAME', 'ck_token'), '', '/');
+    }
+}
+
 if (! function_exists('api_success')) {
     /**
      * Build a standard JSON success string.

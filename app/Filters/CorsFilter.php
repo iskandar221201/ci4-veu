@@ -38,18 +38,29 @@ class CorsFilter implements FilterInterface
     /**
      * Inject CORS headers into the response from .env values.
      * Called in both before() and after() to ensure headers are always present.
+     *
+     * Origin-aware: when CORS_ALLOWED_ORIGINS is a specific whitelist, echo the
+     * request Origin (so cookies/credentials work); when it is '*', use the
+     * legacy wildcard mode (browser rejects credentials with wildcard).
      */
     private function setCorsHeaders(ResponseInterface $response): void
     {
-        $allowedOrigin = env('CORS_ALLOWED_ORIGINS', '*');
+        $allowed = env('CORS_ALLOWED_ORIGINS', '*');
+        $origin  = service('request')->getHeaderLine('Origin');
 
-        $response->setHeader('Access-Control-Allow-Origin',  $allowedOrigin);
-        $response->setHeader('Access-Control-Allow-Methods', env('CORS_ALLOWED_METHODS', 'GET,POST,PUT,PATCH,DELETE,OPTIONS'));
-        $response->setHeader('Access-Control-Allow-Headers', env('CORS_ALLOWED_HEADERS', 'Content-Type,Authorization,X-Requested-With'));
-
-        // Required when origin is not wildcard and credentials (cookies/tokens) are used
-        if ($allowedOrigin !== '*') {
-            $response->setHeader('Access-Control-Allow-Credentials', 'true');
+        if ($allowed === '*') {
+            $response->setHeader('Access-Control-Allow-Origin', '*');
+        } else {
+            $whitelist = array_map('trim', explode(',', $allowed));
+            if ($origin !== '' && in_array($origin, $whitelist, true)) {
+                $response->setHeader('Access-Control-Allow-Origin', $origin);
+                $response->setHeader('Access-Control-Allow-Credentials', 'true');
+                $response->setHeader('Vary', 'Origin');
+            }
+            // Origin not whitelisted → no ACAO header; browser blocks the response.
         }
+
+        $response->setHeader('Access-Control-Allow-Methods', env('CORS_ALLOWED_METHODS', 'GET,POST,PUT,PATCH,DELETE,OPTIONS'));
+        $response->setHeader('Access-Control-Allow-Headers', env('CORS_ALLOWED_HEADERS', 'Content-Type,Authorization,X-Requested-With,Tus-Resumable,Upload-Length,Upload-Metadata,Upload-Offset'));
     }
 }

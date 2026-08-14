@@ -87,6 +87,13 @@ php_errors.log
 vendor/
 
 #-------------------------
+# Frontend (Vue SPA)
+#-------------------------
+node_modules/
+public/dist/
+frontend/.vite/
+
+#-------------------------
 # Agent Files
 #-------------------------
 .agent/

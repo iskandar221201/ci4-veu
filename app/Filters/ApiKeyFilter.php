@@ -14,7 +14,17 @@ class ApiKeyFilter implements FilterInterface
     public function before(RequestInterface $request, $arguments = null)
     {
         $authHeader = $request->getHeaderLine('Authorization');
-        
+
+        // Fallback: if no Bearer header, try the httpOnly cookie (Vue SPA mode).
+        if (empty($authHeader) || strpos($authHeader, 'Bearer ') !== 0) {
+            $cookieToken = $request->getCookie(env('AUTH_COOKIE_NAME', 'ck_token'));
+            if (! empty($cookieToken)) {
+                $request->setHeader('Authorization', 'Bearer ' . $cookieToken);
+                $authHeader = 'Bearer ' . $cookieToken;
+                AppLogger::info('api.token.cookie_fallback', ['ip' => $request->getIPAddress()]);
+            }
+        }
+
         if (empty($authHeader) || strpos($authHeader, 'Bearer ') !== 0) {
             AppLogger::warning('api.token.invalid', [
                 'ip'     => $request->getIPAddress(),
