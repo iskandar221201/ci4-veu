@@ -1,4 +1,10 @@
 # CodeIgniter 4 Production Grade Kit
+PHP CodeIgniter Shield License Status Version
+
+A Production-grade CI4 starter kit — full-stack monolith or pure REST API backend...
+
+> **Forked from [codeigniter4-kit](https://github.com/iskandar221201/codeigniter4-kit)** — upgraded from a server-rendered monolith to a full-stack CI4 + Vue 3 SPA. Same author, same backend DNA, different frontend architecture.
+
 ![PHP](https://img.shields.io/badge/PHP-8.2%2B-777BB4?style=flat-square&logo=php&logoColor=white)
 ![CodeIgniter](https://img.shields.io/badge/CodeIgniter-4.x-EF4223?style=flat-square&logo=codeigniter&logoColor=white)
 ![Shield](https://img.shields.io/badge/Shield-Auth-22c55e?style=flat-square)
