@@ -1,11 +1,13 @@
 <script setup>
 import EmptyState from '@/components/ui/EmptyState.vue'
+import Skeleton from '@/components/ui/Skeleton.vue'
 
 defineProps({
   columns: { type: Array, required: true },
   actions: { type: Array, default: () => [] },
   data: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false },
+  skeletonRows: { type: Number, default: 5 },
   currentPage: { type: Number, default: 1 },
   totalPages: { type: Number, default: 1 },
 })
@@ -13,8 +15,38 @@ const emit = defineEmits(['change-page'])
 </script>
 
 <template>
-  <div v-show="loading" class="space-y-3 mt-4">
-    <div v-for="i in 5" :key="i" class="h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+  <div v-show="loading" class="mt-4 overflow-x-auto rounded-lg border border-gray-200">
+    <table class="min-w-full divide-y divide-gray-200 text-sm">
+      <thead class="bg-gray-50">
+        <tr>
+          <th
+            v-for="col in columns"
+            :key="col.key"
+            scope="col"
+            class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap"
+          >
+            {{ col.label }}
+          </th>
+          <th
+            v-if="actions.length"
+            scope="col"
+            class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap"
+          >
+            Aksi
+          </th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-100">
+        <tr v-for="i in skeletonRows" :key="i">
+          <td v-for="col in columns" :key="col.key" class="px-4 py-3">
+            <Skeleton height="0.875rem" :width="['70%', '85%', '60%'][i % 3]" />
+          </td>
+          <td v-if="actions.length" class="px-4 py-3">
+            <Skeleton height="0.875rem" width="4rem" />
+          </td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 
   <div v-show="!loading && data.length === 0" class="mt-4">

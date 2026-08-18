@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import api from '@/services/api'
 import { useToastStore } from '@/stores/toast'
 import PageHeader from '@/components/ui/PageHeader.vue'
+import Skeleton from '@/components/ui/Skeleton.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 import FormSubmitGroup from '@/components/ui/FormSubmitGroup.vue'
 import { useDetailFetcher } from '@/composables/useDetailFetcher'
@@ -77,7 +78,22 @@ function openDelete() {
 <template>
   <PageHeader title="Detail User" :breadcrumbs="breadcrumbs" />
 
-  <div v-show="loading" class="mt-6 text-sm text-gray-400">Memuat data...</div>
+  <div v-show="loading" class="mt-6 bg-white rounded-lg border border-gray-200 p-6">
+    <div class="flex items-start justify-between mb-4">
+      <Skeleton height="1rem" width="8rem" />
+      <Skeleton height="0.875rem" width="3rem" />
+    </div>
+    <div class="space-y-5">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Skeleton height="0.875rem" width="5rem" />
+        <Skeleton height="0.875rem" width="70%" />
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Skeleton height="0.875rem" width="5rem" />
+        <Skeleton height="0.875rem" width="85%" />
+      </div>
+    </div>
+  </div>
 
   <div v-show="!loading" class="mt-6 space-y-4">
     <!-- View Mode -->

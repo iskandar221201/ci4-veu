@@ -11,7 +11,6 @@ import { useAuthStore } from '@/stores/auth'
 const app = createApp(App)
 const pinia = createPinia()
 app.use(pinia)
-app.use(router)
 app.use(createHead())
 
 app.config.errorHandler = (err, _instance, info) =>
@@ -29,6 +28,10 @@ const auth = useAuthStore(pinia)
 
 async function bootstrap() {
   await auth.fetchMe()
+  // Install router after fetchMe: app.use(router) triggers the initial
+  // navigation, whose guard reads auth state. Installing it earlier would
+  // redirect to /login before fetchMe() resolves (logout on refresh).
+  app.use(router)
   app.mount('#app')
 }
 
