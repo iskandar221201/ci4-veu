@@ -27,7 +27,7 @@ class Routing extends BaseRouting
         parent::__construct();
 
         $files = glob(APPPATH . 'Routers/*/routes.php') ?: [];
-        sort($files, SORT_STRING);
+        sort($files, SORT_NATURAL);
 
         $this->routeFiles = $files;
     }

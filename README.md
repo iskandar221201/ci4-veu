@@ -200,7 +200,6 @@ app/
 │   ├── 20-users/routes.php   # api/users CRUD
 │   ├── 30-upload/routes.php  # api/upload/tus — chunked upload
 │   ├── 40-ping/routes.php    # api/ping (public) + api/protected
-│   ├── 50-shield/routes.php  # Shield routes (session auth excluded)
 │   └── 90-spa/routes.php     # SPA catch-all — MUST load last
 ├── Controllers/
 │   ├── BaseController.php    # Base for all controllers (traits wired here)
@@ -282,7 +281,6 @@ Routes are split into **per-module files** under `app/Routers/<module>/routes.ph
 `app/Config/Routing.php` overrides `$routeFiles` and auto-discovers `app/Routers/*/routes.php`, sorting by folder name. Files load in sorted order and the **first match wins**, so the numeric prefix controls precedence:
 
 - `10`–`40` — API routes (order between them is irrelevant).
-- `50-shield` — Shield routes.
 - `90-spa` — the `(.*)` catch-all, **always last** so it never shadows an API route.
 
 The `$routes` variable is injected into each file's scope by the framework — it is a `RouteCollection`, not a plain array.
