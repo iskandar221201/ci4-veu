@@ -1,36 +1,36 @@
 <?php
 
-/**
- * This file is part of CodeIgniter 4 framework.
- *
- * (c) CodeIgniter Foundation <admin@codeigniter.com>
- *
- * For the full copyright and license information, please view
- * the LICENSE file that was distributed with this source code.
- */
-
 namespace Config;
 
 use CodeIgniter\Config\Routing as BaseRouting;
 
 /**
  * Routing configuration
+ *
+ * Routes are split into per-module files under app/Routers/<module>/routes.php.
+ * Folders use a numeric prefix to control load order (first match wins),
+ * so the SPA catch-all (90-spa) always loads last.
  */
 class Routing extends BaseRouting
 {
     /**
      * For Defined Routes.
-     * An array of files that contain route definitions.
-     * Route files are read in order, with the first match
-     * found taking precedence.
-     *
-     * Default: APPPATH . 'Config/Routes.php'
+     * Auto-discovered from app/Routers/<module>/routes.php, sorted by
+     * folder name so the numeric prefix controls load order.
      *
      * @var list<string>
      */
-    public array $routeFiles = [
-        APPPATH . 'Config/Routes.php',
-    ];
+    public array $routeFiles = [];
+
+    public function __construct()
+    {
+        parent::__construct();
+
+        $files = glob(APPPATH . 'Routers/*/routes.php') ?: [];
+        sort($files, SORT_STRING);
+
+        $this->routeFiles = $files;
+    }
 
     /**
      * For Defined Routes and Auto Routing.

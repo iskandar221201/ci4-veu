@@ -20,6 +20,7 @@ A production-grade starter kit combining **CodeIgniter 4** as a pure REST API ba
 - [Deployment](#deployment)
 - [Architecture Overview](#architecture-overview)
 - [Project Structure](#project-structure)
+- [Routing](#routing)
 - [API Response Envelope](#api-response-envelope)
 - [Filter Stack](#filter-stack)
 - [Authentication Flow](#authentication-flow)
@@ -190,10 +191,17 @@ app/
 ├── Config/
 │   ├── AppConstants.php      # HTTP status codes, pagination caps, and app-wide constants
 │   ├── Filters.php           # Filter aliases and route bindings
-│   ├── Routes.php            # Route definitions (web + API)
+│   ├── Routing.php           # Route file discovery (auto-globs app/Routers/*/routes.php)
 │   ├── SSOConfig.php         # SSO toggle + RSA key config
 │   ├── TusConfig.php         # TUS upload dir, max size, expiry
 │   └── WsConfig.php          # WebSocket host, port, enabled, secret
+├── Routers/                  # Per-module route files (numeric prefix = load order)
+│   ├── 10-auth/routes.php    # api/auth/* — login (public), logout/me (protected)
+│   ├── 20-users/routes.php   # api/users CRUD
+│   ├── 30-upload/routes.php  # api/upload/tus — chunked upload
+│   ├── 40-ping/routes.php    # api/ping (public) + api/protected
+│   ├── 50-shield/routes.php  # Shield routes (session auth excluded)
+│   └── 90-spa/routes.php     # SPA catch-all — MUST load last
 ├── Controllers/
 │   ├── BaseController.php    # Base for all controllers (traits wired here)
 │   ├── Api/
@@ -202,8 +210,7 @@ app/
 │   │   ├── PingController.php      # Health check endpoints
 │   │   ├── TusController.php       # TUS protocol handler
 │   │   └── UserController.php      # Full CRUD reference implementation
-│   ├── SpaController.php     # Serves the Vue SPA (frontend/dist/index.html)
-│   └── Home.php              # Legacy welcome (orphan, unused)
+│   └── SpaController.php     # Serves the Vue SPA (frontend/dist/index.html)
 ├── Exceptions/
 │   ├── ServiceException.php        # General service-layer exception
 │   └── ValidationException.php     # Wraps validation errors (422)
@@ -263,6 +270,45 @@ frontend/                     # Vue 3 SPA (Vite + Vue Router + Pinia + Tailwind)
 ```
 
 > The Vue SPA builds to `public/dist/` and is served by `SpaController` via a catch-all route (single server mode).
+
+---
+
+## Routing
+
+Routes are split into **per-module files** under `app/Routers/<module>/routes.php` instead of a single `app/Config/Routes.php`. This keeps routing organized as the app grows — one folder per feature.
+
+### How it works
+
+`app/Config/Routing.php` overrides `$routeFiles` and auto-discovers `app/Routers/*/routes.php`, sorting by folder name. Files load in sorted order and the **first match wins**, so the numeric prefix controls precedence:
+
+- `10`–`40` — API routes (order between them is irrelevant).
+- `50-shield` — Shield routes.
+- `90-spa` — the `(.*)` catch-all, **always last** so it never shadows an API route.
+
+The `$routes` variable is injected into each file's scope by the framework — it is a `RouteCollection`, not a plain array.
+
+### Adding a module
+
+Create a folder with a numeric prefix and drop in a `routes.php` — no central file to edit:
+
+```php
+// app/Routers/60-posts/routes.php
+use CodeIgniter\Router\RouteCollection;
+
+/** @var RouteCollection $routes */
+
+$routes->group('api', ['filter' => 'apiKeyFilter'], static function (RouteCollection $routes): void {
+    $routes->get('posts', 'Api\PostController::index');
+    $routes->post('posts', 'Api\PostController::create');
+});
+```
+
+Rules of thumb:
+
+- One folder per feature/module.
+- Numeric prefix controls load order; the `(.*)` catch-all always gets the highest number.
+- Protected routes wrap themselves in `$routes->group('api', ['filter' => 'apiKeyFilter'], ...)`.
+- Verify with `php spark routes`.
 
 ---
 
@@ -589,7 +635,7 @@ php spark make:migration CreatePostsTable && php spark migrate
 # 3. Service — app/Services/PostService.php
 # 4. API Controller — app/Controllers/Api/PostController.php
 # 5. Vue view — frontend/src/views/posts/PostListView.vue
-# 6. Register routes in app/Config/Routes.php
+# 6. Add routes — app/Routers/60-posts/routes.php (see Routing)
 ```
 
 See `UserService.php` and `UserController.php` for complete reference implementation.
